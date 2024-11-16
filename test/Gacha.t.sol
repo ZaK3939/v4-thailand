@@ -16,6 +16,8 @@ import {GachaPoolHook} from "../src/GachaPoolHook.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {EasyPosm} from "./utils/EasyPosm.sol";
 import {Fixtures} from "./utils/Fixtures.sol";
+import { MockERC404 } from "./mocks/MockERC404.sol";
+
 
 contract GachaPoolHookTest is Test, Deployers, Fixtures  {
     using PoolIdLibrary for PoolKey;
@@ -23,10 +25,36 @@ contract GachaPoolHookTest is Test, Deployers, Fixtures  {
 
     GachaPoolHook hook;
 
+    function deployMintAndApprove2Currencies404() internal returns (Currency, Currency) {
+    // ERC404トークンをデプロイ
+    MockERC404 token0 = new MockERC404("Token0", "TKN0", 18, address(this));
+    MockERC404 token1 = new MockERC404("Token1", "TKN1", 18, address(this));
+
+    token0.setERC721TransferExempt(address(manager), true);
+    token1.setERC721TransferExempt(address(manager), true);
+    token0.setERC721TransferExempt(address(this), true);
+    token1.setERC721TransferExempt(address(this), true);
+    token0.setERC721TransferExempt(address(swapRouter), true);
+    token1.setERC721TransferExempt(address(swapRouter), true);
+    
+    // アドレスでソート
+    if (address(token0) > address(token1)) {
+        (token0, token1) = (token1, token0);
+    }
+
+    // Currencyにラップ
+    currency0 = Currency.wrap(address(token0));
+    currency1 = Currency.wrap(address(token1));
+
+    return (currency0, currency1);
+}
+
     function setUp() public {
         // creates the pool manager, utility routers, and test tokens
         deployFreshManagerAndRouters();
-        (currency0, currency1) = deployMintAndApprove2Currencies();
+        (currency0, currency1) = deployMintAndApprove2Currencies404();
+
+        
 
         deployAndApprovePosm(manager);
 
@@ -60,10 +88,12 @@ contract GachaPoolHookTest is Test, Deployers, Fixtures  {
         // Mint tokens to this contract
         deal(Currency.unwrap(currency0), address(this), amount * 2);
         deal(Currency.unwrap(currency1), address(this), amount * 2);
-
+        
         // Approve tokens for the hook
         IERC20(Currency.unwrap(currency0)).approve(address(hook), type(uint256).max);
         IERC20(Currency.unwrap(currency1)).approve(address(hook), type(uint256).max);
+        IERC20(Currency.unwrap(currency0)).approve(address(swapRouter), type(uint256).max);
+        IERC20(Currency.unwrap(currency1)).approve(address(swapRouter), type(uint256).max);
 
         // Add initial liquidity through the hook
         hook.addLiquidity(key, amount);

@@ -10,3 +10,6 @@
 [submodule "lib/erc404"]
 	path = lib/erc404
 	url = https://github.com/Pandora-Labs-Org/erc404
+[submodule "lib/solady"]
+	path = lib/solady
+	url = https://github.com/vectorized/solady
